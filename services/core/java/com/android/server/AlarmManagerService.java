@@ -44,6 +44,7 @@ import android.os.Handler;
 import android.os.IBinder;
 import android.os.Message;
 import android.os.PowerManager;
+import android.os.PowerManagerInternal;
 import android.os.Process;
 import android.os.RemoteException;
 import android.os.SystemClock;
@@ -126,6 +127,7 @@ class AlarmManagerService extends SystemService {
 
     AppOpsManager mAppOps;
     DeviceIdleController.LocalService mLocalDeviceIdleController;
+    private PowerManagerInternal mPowerManagerInternal;
 
     final Object mLock = new Object();
 
@@ -226,7 +228,7 @@ class AlarmManagerService extends SystemService {
                 = "allow_while_idle_whitelist_duration";
         private static final String KEY_LISTENER_TIMEOUT = "listener_timeout";
 
-        private static final long DEFAULT_MIN_FUTURITY = 5 * 1000;
+        private static final long DEFAULT_MIN_FUTURITY = 5 * 10;
         private static final long DEFAULT_MIN_INTERVAL = 60 * 1000;
         private static final long DEFAULT_ALLOW_WHILE_IDLE_SHORT_TIME = DEFAULT_MIN_FUTURITY;
         private static final long DEFAULT_ALLOW_WHILE_IDLE_LONG_TIME = 9*60*1000;
@@ -1048,6 +1050,7 @@ class AlarmManagerService extends SystemService {
             mAppOps = (AppOpsManager) getContext().getSystemService(Context.APP_OPS_SERVICE);
             mLocalDeviceIdleController
                     = LocalServices.getService(DeviceIdleController.LocalService.class);
+            mPowerManagerInternal = getLocalService(PowerManagerInternal.class);
         }
     }
 
@@ -1165,6 +1168,58 @@ class AlarmManagerService extends SystemService {
             maxElapsed = triggerElapsed + windowLength;
         }
 
+
+        boolean blockAlarm = false;
+	String blockTag = callingPackage + ":" + listenerTag;
+	
+        if(operation != null) {
+            blockTag = callingPackage + ":" + operation.getTag("");
+	}
+
+	Slog.e(TAG, "Alarm: type=" + type + ", tag=" + blockTag + ", " + flags + ", alarmClock=" + alarmClock + ", ws=" + workSource );
+
+        if (operation != mTimeTickSender && alarmClock == null && ( type == AlarmManager.RTC_WAKEUP || type == AlarmManager.ELAPSED_REALTIME_WAKEUP ) ) {
+
+            Slog.e(TAG, "RTC Alarm: " + type + " " + blockTag);
+
+ 	    int appid = 0;
+
+	    if( callingPackage != null && callingPackage.equals("com.google.android.deskclock") ) {
+		blockAlarm = false;
+	    } else if( blockTag.contains("com.android.internal.telephony.data") ||
+		blockTag.contains("*sync") ||
+		blockTag.contains("*job") ) {
+		    blockAlarm = true;
+	    } else if( blockTag.equals("android:WifiConnectivityManager Restart Scan") ) {
+	   	blockAlarm = true;
+	    } else {
+
+		if (workSource != null ) {
+		    if( !mPowerManagerInternal.isSystemApp(workSource)  && 
+			!mPowerManagerInternal.isWhitelisted(workSource) ) {
+			blockAlarm = true;
+		    }
+		} else {
+		    if( !mPowerManagerInternal.isSystemApp(callingUid)  && 
+			!mPowerManagerInternal.isWhitelisted(callingUid) ) {
+			blockAlarm = true;
+		    }
+		}
+	    }
+
+	    if( blockAlarm ) {
+                Slog.e(TAG, "RTC Alarm: (blocked) " + type + " " + blockTag);
+
+                if (type == AlarmManager.RTC_WAKEUP) {
+                    type = AlarmManager.RTC;
+                } else {
+                    type = AlarmManager.ELAPSED_REALTIME;
+                }
+	    }
+
+        }
+
+
         synchronized (mLock) {
             if (DEBUG_BATCH) {
                 Slog.v(TAG, "set(" + operation + ") : type=" + type
@@ -1204,7 +1259,7 @@ class AlarmManagerService extends SystemService {
             // to pull that earlier if there are existing alarms that have requested to
             // bring us out of idle at an earlier time.
             if (mNextWakeFromIdle != null && a.whenElapsed > mNextWakeFromIdle.whenElapsed) {
-                a.when = a.whenElapsed = a.maxWhenElapsed = mNextWakeFromIdle.whenElapsed;
+                // a.when = a.whenElapsed = a.maxWhenElapsed = mNextWakeFromIdle.whenElapsed;
             }
             // Add fuzz to make the alarm go off some time before the actual desired time.
             final long nowElapsed = SystemClock.elapsedRealtime();

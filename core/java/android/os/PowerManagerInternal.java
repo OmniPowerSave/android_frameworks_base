@@ -17,6 +17,7 @@
 package android.os;
 
 import android.view.Display;
+import android.content.Intent;
 
 /**
  * Power manager local system service interface.
@@ -155,4 +156,43 @@ public abstract class PowerManagerInternal {
      * PowerHint defined in android/hardware/power/<version 1.0 & up>/IPower.h
      */
     public abstract void powerHint(int hintId, int data);
+
+    // PowerSave 
+
+    // is app whitelisted by any whitelist
+    public abstract boolean isWhitelisted(int uid);
+    public abstract boolean isWhitelisted(WorkSource ws);
+    public abstract boolean isWhitelisted(String packageName);
+
+    // is app whitelisted by temp whitelist
+    public abstract boolean isTempWhitelisted(int uid);
+    public abstract boolean isTempWhitelisted(WorkSource ws);
+    public abstract boolean isTempWhitelisted(String packageName);
+
+    // is app allowed to run in current mode
+    public abstract boolean isStartAllowed(int uid);
+    public abstract boolean isStartAllowed(int uid,String packageName);
+    public abstract boolean isStartAllowed(WorkSource ws);
+    public abstract boolean isStartAllowed(int uid, String packageName, Intent intent);
+    public abstract boolean isStartAllowed(int uid, String packageName, String cls, String act);
+
+    // PowerSave screen on
+    public abstract boolean isSemiIdleMode();
+    public abstract boolean isSemiIdleModeEnabled();
+
+    // App mgr
+    public abstract boolean isGMS(int uid);
+    public abstract boolean isGMS(WorkSource ws);
+    public abstract boolean isGMS(String packageName);
+
+    public abstract boolean isSystemCritical(int uid);
+    public abstract boolean isSystemCritical(WorkSource ws);
+    public abstract boolean isSystemCritical(String packageName);
+
+    public abstract boolean isSystemApp(int uid);
+    public abstract boolean isSystemApp(WorkSource ws);
+    public abstract boolean isSystemApp(String packageName);
+
+    public abstract String getAppNameByUid(int uid);
+
 }
