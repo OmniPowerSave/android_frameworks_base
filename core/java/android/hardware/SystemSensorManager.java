@@ -164,7 +164,7 @@ public class SystemSensorManager extends SensorManager {
 
         if (sensor.getType() == Sensor.TYPE_SIGNIFICANT_MOTION) {
             String pkgName = mContext.getPackageName();
-            Log.w(TAG, "Preventing " + pkgName + "from draining battery using " +
+            Log.w(TAG, "Preventing " + pkgName + " from draining battery using " +
                        "significant motion sensor");
             return false;
         }
