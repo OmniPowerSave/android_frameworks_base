@@ -15,6 +15,7 @@
  */
 package com.android.internal.logging;
 
+import android.util.Log;
 import android.content.Context;
 import android.metrics.LogMaker;
 import android.os.Build;
@@ -42,6 +43,7 @@ public class MetricsLogger {
 
     protected void saveLog(Object[] rep) {
         EventLogTags.writeSysuiMultiAction(rep);
+	Log.e("SYSUILOG","MetricLogger: called from here", new Throwable());	
     }
 
     public static final int VIEW_UNKNOWN = MetricsEvent.VIEW_UNKNOWN;
