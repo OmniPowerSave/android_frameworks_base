@@ -118,6 +118,7 @@ import static android.view.WindowManagerPolicy.WindowManagerFuncs.LID_ABSENT;
 import static android.view.WindowManagerPolicy.WindowManagerFuncs.LID_CLOSED;
 import static android.view.WindowManagerPolicy.WindowManagerFuncs.LID_OPEN;
 
+import android.Manifest;
 import android.annotation.Nullable;
 import android.app.ActivityManager;
 import android.app.ActivityManagerNative;
@@ -6271,7 +6272,9 @@ public class PhoneWindowManager implements WindowManagerPolicy {
                     Context.BIND_AUTO_CREATE | Context.BIND_FOREGROUND_SERVICE_WHILE_AWAKE,
                     UserHandle.CURRENT)) {
                 mScreenshotConnection = conn;
-                mHandler.postDelayed(mScreenshotTimeout, 10000);
+                if (screenshotType != WindowManager.TAKE_SCREENSHOT_SELECTED_REGION) {
+                    mHandler.postDelayed(mScreenshotTimeout, 10000);
+                }
             }
         }
     }
@@ -6613,14 +6616,8 @@ public class PhoneWindowManager implements WindowManagerPolicy {
                     // {@link interceptKeyBeforeDispatching()}.
                     result |= ACTION_PASS_TO_USER;
                 } else if ((result & ACTION_PASS_TO_USER) == 0) {
-                    // If we aren't passing to the user and no one else
-                    // handled it send it to the session manager to
-                    // figure out.
-                    MediaSessionLegacyHelper.getHelper(mContext).sendVolumeKeyEvent(
-                            event, AudioManager.USE_DEFAULT_STREAM_TYPE, true);
-
-                    boolean notHandledMusicControl = false;
                     if (!interactive && mVolumeMusicControl && isMusicActive()) {
+                        boolean notHandledMusicControl = false;
                         if (down) {
                             if (keyCode == KeyEvent.KEYCODE_VOLUME_DOWN) {
                                 scheduleLongPressKeyEvent(event, KeyEvent.KEYCODE_MEDIA_PREVIOUS);
@@ -6633,22 +6630,20 @@ public class PhoneWindowManager implements WindowManagerPolicy {
                             mHandler.removeMessages(MSG_DISPATCH_VOLKEY_WITH_WAKE_LOCK);
                             notHandledMusicControl = true;
                         }
-                    }
-                    if (down || notHandledMusicControl) {
-                        KeyEvent newEvent = event;
-                        if (!down) {
-                            // Rewrite the event to use key-down if required
-                            newEvent = new KeyEvent(KeyEvent.ACTION_DOWN, keyCode);
+
+                        if (notHandledMusicControl) {
+                            KeyEvent newEvent = event;
+                            if (!down) {
+                                // Rewrite the event to use key-down if required
+                                // down is enough to make the volume event handled
+                                newEvent = new KeyEvent(KeyEvent.ACTION_DOWN, keyCode);
+                            }
+                            MediaSessionLegacyHelper.getHelper(mContext).sendVolumeKeyEvent(
+                                    newEvent, AudioManager.USE_DEFAULT_STREAM_TYPE, true);
                         }
-                        if (mUseTvRouting) {
-                            dispatchDirectAudioEvent(newEvent);
-                        } else {
-                            // If we aren't passing to the user and no one else
-                            // handled it send it to the session manager to
-                            // figure out.
-                            MediaSessionLegacyHelper.getHelper(mContext)
-                                    .sendVolumeKeyEvent(newEvent, AudioManager.USE_DEFAULT_STREAM_TYPE, true);
-                        }
+                    } else {
+                        MediaSessionLegacyHelper.getHelper(mContext).sendVolumeKeyEvent(
+                                event, AudioManager.USE_DEFAULT_STREAM_TYPE, true);
                     }
                 }
                 break;
@@ -6978,7 +6973,7 @@ public class PhoneWindowManager implements WindowManagerPolicy {
         IDreamManager dreamManager = getDreamManager();
 
         try {
-            if (dreamManager != null && dreamManager.isDreaming()) {
+            if (dreamManager != null && dreamManager.isDreaming() && !dreamManager.isDozing()) {
                 return true;
             }
         } catch (RemoteException e) {
@@ -8770,6 +8765,26 @@ public class PhoneWindowManager implements WindowManagerPolicy {
     @Override
     public boolean hasNavigationBar() {
         return mHasNavigationBar;
+    }
+
+    @Override
+    public void sendCustomAction(Intent intent) {
+        String action = intent.getAction();
+        if (action != null) {
+            if (OmniUtils.INTENT_SCREENSHOT.equals(action)) {
+                mContext.enforceCallingOrSelfPermission(Manifest.permission.ACCESS_SURFACE_FLINGER,
+                        TAG + "sendCustomAction permission denied");
+                mHandler.removeCallbacks(mScreenshotRunnable);
+                mScreenshotRunnable.setScreenshotType(TAKE_SCREENSHOT_FULLSCREEN);
+                mHandler.post(mScreenshotRunnable);
+            } else if (OmniUtils.INTENT_REGION_SCREENSHOT.equals(action)) {
+                mContext.enforceCallingOrSelfPermission(Manifest.permission.ACCESS_SURFACE_FLINGER,
+                        TAG + "sendCustomAction permission denied");
+                mHandler.removeCallbacks(mScreenshotRunnable);
+                mScreenshotRunnable.setScreenshotType(TAKE_SCREENSHOT_SELECTED_REGION);
+                mHandler.post(mScreenshotRunnable);
+            }
+        }
     }
 
     @Override

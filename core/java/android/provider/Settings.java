@@ -4012,6 +4012,13 @@ public final class Settings {
         public static final String SCREENSHOT_SHUTTER_SOUND = "screenshot_shutter_sound";
 
         /**
+         * 0 - fullscreen
+         * 1 - partial
+         * @hide
+         */
+        public static final String SCREENSHOT_DEFAULT_MODE = "screenshot_default_mode";
+
+        /**
          * Change volume up and down handlign based on rotation
          * @hide
          */
@@ -4522,6 +4529,7 @@ public final class Settings {
             PRIVATE_SETTINGS.add(LOCKSCREEN_HIDE_MEDIA_METADATA);
             PRIVATE_SETTINGS.add(DEVICE_FEATURE_SETTINGS);
             PRIVATE_SETTINGS.add(SYSTEM_UI_THEME);
+            PRIVATE_SETTINGS.add(SCREENSHOT_DEFAULT_MODE);
         }
 
         /**
@@ -10702,6 +10710,11 @@ public final class Settings {
          * @hide
          */
         public static final String DEVICE_IDLE_CONSTANTS_USER = "device_idle_constants_user";
+
+        /**
+         * @hide
+         */
+        public static final String VOICE_CALL_DEFAULT_CHANGED = "voice_call_default_changed";
 
         /**
          * Flag to enable use of RefactoredBackupManagerService.
